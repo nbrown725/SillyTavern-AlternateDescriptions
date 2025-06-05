@@ -1,0 +1,20 @@
+/* Basic styling for our button to match SillyTavern's theme */
+.alt_descriptions_button {
+    margin-top: 5px;
+}
+
+.alt_descriptions_button:hover {
+    opacity: 0.8;
+}
+
+/* Active description styling */
+/* .active-description {
+    border-left: 3px solid #28a745;
+    padding-left: 10px;
+    background-color: rgba(40, 167, 69, 0.1);
+    border-radius: 4px;
+} */
+
+.active-description .desc-textarea {
+    border-color: #28a745;
+}
