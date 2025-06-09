@@ -1,0 +1,12 @@
+{
+    "display_name": "Alternate Fields",
+    "loading_order": 10,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "Nbrown725",
+    "version": "0.1.0",
+    "homePage": "",
+    "auto_update": true
+}
