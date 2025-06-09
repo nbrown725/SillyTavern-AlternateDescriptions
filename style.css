@@ -1,0 +1,10 @@
+.active-description {
+    border-left: 3px solid #28a745;
+    padding-left: 10px;
+    background-color: rgba(40, 167, 69, 0.1);
+    border-radius: 4px;
+}
+
+.active-description .desc-textarea {
+    border-color: #28a745;
+}
