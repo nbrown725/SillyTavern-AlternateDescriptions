@@ -34,6 +34,8 @@ Switching descriptions does not automatically save your current work. The extens
 
 Alternate descriptions are saved inside the character card, under the `extensions` object within the `alternate_descriptions` key. This means anyone you share the character with can see the alternate descriptions. Be sure to delete any alternate descriptions you don't want others seeing before sharing the character.
 
+## Acknowledgement
+
 This extension is based on patterns from the [Group Greetings extension](https://github.com/SillyTavern/Extension-GroupGreetings) by the SillyTavern team.
 
 ## License
