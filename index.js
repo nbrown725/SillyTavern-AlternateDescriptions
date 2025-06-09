@@ -171,11 +171,6 @@ function updateActiveIndicators(container, descriptions) {
     checkDescriptionStatus(container, descriptions);
 }
 
-// Check if description already exists
-function descriptionExists(descriptions, newDescription) {
-    return descriptions.some(desc => desc.trim() === newDescription.trim());
-}
-
 // Update the descriptions list in the popup
 function updateDescriptionsList(container, descriptions) {
     const listContainer = container.querySelector('#descriptions-list');
@@ -306,7 +301,7 @@ function createPopupContent() {
             <h3 class="margin0">Alternate descriptions for <span>${characterName}</span></h3>
             <div id="add-description-btn" class="menu_button menu_button_icon">
                 <i class="fa-solid fa-plus"></i>
-                <span>Add Current</span>
+                <span>Add New</span>
             </div>
         </div>
         <hr>
@@ -322,24 +317,9 @@ function createPopupContent() {
         <div id="descriptions-list"></div>
     `;
 
-    // Add event listener for "Add Current" button with duplicate check
+    // Add event listener for "Add New" button with duplicate check
     container.querySelector('#add-description-btn').addEventListener('click', () => {
         const currentDesc = ContextUtil.getCurrentDescription();
-
-        // Check if this description already exists
-        if (descriptionExists(descriptions, currentDesc)) {
-            // Show temporary message
-            const btn = container.querySelector('#add-description-btn');
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-info-circle"></i><span>Already exists</span>';
-            btn.style.opacity = '0.6';
-            setTimeout(() => {
-                btn.innerHTML = originalHtml;
-                btn.style.opacity = '';
-            }, 1500);
-            return;
-        }
-
         descriptions.push(currentDesc || '');
         saveDescriptions(descriptions);
         updateDescriptionsList(container, descriptions);
