@@ -71,135 +71,6 @@ function saveDescriptions(descriptions) {
     }
 }
 
-// Create the popup content
-function createPopupContent() {
-    let descriptions = ContextUtil.getInitialDescriptions();
-    const characterName = ContextUtil.getName();
-    const currentDescription = ContextUtil.getCurrentDescription();
-
-    // AUTO-SAVE: If this is the first time opening (no saved descriptions) 
-    // and there's a current description, automatically save it
-    if (descriptions.length === 0 && currentDescription.trim()) {
-        descriptions = [currentDescription];
-        saveDescriptions(descriptions);
-        console.log('Auto-saved current description on first open');
-    }
-
-    const container = document.createElement('div');
-    container.className = 'flex-container flexFlowColumn';
-
-    container.innerHTML = `
-        <div class="flex-container justifySpaceBetween alignItemsCenter">
-            <h3 class="margin0">Alternate descriptions for <span>${characterName}</span></h3>
-            <div id="add-description-btn" class="menu_button menu_button_icon">
-                <i class="fa-solid fa-plus"></i>
-                <span>Add Current</span>
-            </div>
-        </div>
-        <hr>
-        <div class="justifyLeft">
-            <small>
-                Save different versions of your character's description. Click "Use" to switch the active description in the editor.
-                ${descriptions.length === 1 && descriptions[0] === currentDescription ?
-            '<br><strong>💾 Your original description has been automatically saved!</strong>' : ''
-        }
-            </small>
-        </div>
-        <hr>
-        <div id="descriptions-list">
-            ${descriptions.length === 0 ?
-            '<strong>Click <i class="fa-solid fa-plus"></i> to save the current description</strong>' :
-            ''
-        }
-        </div>
-    `;
-
-    // Add event listener for "Add Current" button
-    container.querySelector('#add-description-btn').addEventListener('click', () => {
-        const currentDesc = ContextUtil.getCurrentDescription();
-        descriptions.push(currentDesc || '');
-        saveDescriptions(descriptions);
-        updateDescriptionsList(container, descriptions);
-        checkDescriptionStatus(container, descriptions);
-    });
-
-    // Initial render of descriptions list
-    updateDescriptionsList(container, descriptions);
-
-    // Setup real-time monitoring
-    setupDescriptionMonitoring(container, descriptions);
-
-    return container;
-}
-
-// Update the descriptions list in the popup
-function updateDescriptionsList(container, descriptions) {
-    const listContainer = container.querySelector('#descriptions-list');
-    const currentDescription = ContextUtil.getCurrentDescription();
-
-    if (descriptions.length === 0) {
-        listContainer.innerHTML = '<strong>Click <i class="fa-solid fa-plus"></i> to save the current description</strong>';
-        return;
-    }
-
-    listContainer.innerHTML = descriptions.map((desc, index) => {
-        // Check if this description matches the current one
-        const isActive = desc.trim() === currentDescription.trim();
-        const activeClass = isActive ? 'active-description' : '';
-        const activeIndicator = isActive ? '<i class="fa-solid fa-check-circle" style="color: #28a745; margin-left: 8px;"></i>' : '';
-
-        return `
-            <div class="description-item ${activeClass}" style="margin-bottom: 15px;">
-                <div class="flex-container justifySpaceBetween">
-                    <h4>Description #${index + 1} ${activeIndicator}</h4>
-                    <div class="flex-container">
-                        <div class="menu_button menu_button_icon use-desc-btn" data-index="${index}" ${isActive ? 'style="opacity: 0.5;" title="Already active"' : ''}>
-                            <i class="fa-solid fa-arrow-up"></i>
-                            <span>Use</span>
-                        </div>
-                        <div class="menu_button menu_button_icon delete-desc-btn" data-index="${index}">
-                            <i class="fa-solid fa-trash"></i>
-                            <span>Delete</span>
-                        </div>
-                    </div>
-                </div>
-                <textarea class="text_pole textarea_compact desc-textarea" rows="8" data-index="${index}" placeholder="Character description...">${desc}</textarea>
-            </div>
-        `;
-    }).join('');
-
-    // Add event listeners for use/delete buttons and textareas
-    listContainer.querySelectorAll('.use-desc-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const index = parseInt(e.currentTarget.dataset.index);
-            ContextUtil.setCurrentDescription(descriptions[index]);
-            // Refresh the list to update active indicators
-            updateDescriptionsList(container, descriptions);
-            // Check status after switching
-            checkDescriptionStatus(container, descriptions);
-        });
-    });
-
-    listContainer.querySelectorAll('.delete-desc-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const index = parseInt(e.currentTarget.dataset.index);
-            descriptions.splice(index, 1);
-            saveDescriptions(descriptions);
-            updateDescriptionsList(container, descriptions);
-        });
-    });
-
-    listContainer.querySelectorAll('.desc-textarea').forEach(textarea => {
-        textarea.addEventListener('input', (e) => {
-            const index = parseInt(e.target.dataset.index);
-            descriptions[index] = e.target.value;
-            saveDescriptions(descriptions);
-            // REMOVED: Don't refresh the list while typing
-            // setTimeout(() => updateDescriptionsList(container, descriptions), 100);
-        });
-    });
-}
-
 // Check if current description matches any saved descriptions
 function checkDescriptionStatus(container, descriptions) {
     const currentDescription = ContextUtil.getCurrentDescription();
@@ -262,22 +133,130 @@ function checkDescriptionStatus(container, descriptions) {
     }
 }
 
+// Smart update of active indicators without re-rendering entire list
+function updateActiveIndicators(container, descriptions) {
+    const currentDescription = ContextUtil.getCurrentDescription();
+    const listContainer = container.querySelector('#descriptions-list');
+
+    descriptions.forEach((desc, index) => {
+        const isActive = desc.trim() === currentDescription.trim();
+        const descItem = listContainer.querySelector(`[data-item-index="${index}"]`);
+
+        if (descItem) {
+            const header = descItem.querySelector('h4');
+            const useBtn = descItem.querySelector('.use-desc-btn');
+
+            // Update active class and styling
+            if (isActive) {
+                descItem.classList.add('active-description');
+                useBtn.style.opacity = '0.5';
+                useBtn.title = 'Already active';
+
+                // Add checkmark if not present
+                if (!header.querySelector('.fa-check-circle')) {
+                    header.innerHTML = `Description #${index + 1} <i class="fa-solid fa-check-circle" style="color: #28a745; margin-left: 8px;"></i>`;
+                }
+            } else {
+                descItem.classList.remove('active-description');
+                useBtn.style.opacity = '';
+                useBtn.title = '';
+
+                // Remove checkmark
+                header.innerHTML = `Description #${index + 1}`;
+            }
+        }
+    });
+
+    // Update the status indicator
+    checkDescriptionStatus(container, descriptions);
+}
+
+// Check if description already exists
+function descriptionExists(descriptions, newDescription) {
+    return descriptions.some(desc => desc.trim() === newDescription.trim());
+}
+
+// Update the descriptions list in the popup
+function updateDescriptionsList(container, descriptions) {
+    const listContainer = container.querySelector('#descriptions-list');
+    const currentDescription = ContextUtil.getCurrentDescription();
+
+    if (descriptions.length === 0) {
+        listContainer.innerHTML = '<strong>Click <i class="fa-solid fa-plus"></i> to save the current description</strong>';
+        return;
+    }
+
+    listContainer.innerHTML = descriptions.map((desc, index) => {
+        const isActive = desc.trim() === currentDescription.trim();
+        const activeClass = isActive ? 'active-description' : '';
+        const activeIndicator = isActive ? '<i class="fa-solid fa-check-circle" style="color: #28a745; margin-left: 8px;"></i>' : '';
+
+        return `
+            <div class="description-item ${activeClass}" data-item-index="${index}" style="margin-bottom: 15px;">
+                <div class="flex-container justifySpaceBetween">
+                    <h4>Description #${index + 1} ${activeIndicator}</h4>
+                    <div class="flex-container">
+                        <div class="menu_button menu_button_icon use-desc-btn" data-index="${index}" ${isActive ? 'style="opacity: 0.5;" title="Already active"' : ''}>
+                            <i class="fa-solid fa-arrow-up"></i>
+                            <span>Use</span>
+                        </div>
+                        <div class="menu_button menu_button_icon delete-desc-btn" data-index="${index}">
+                            <i class="fa-solid fa-trash"></i>
+                            <span>Delete</span>
+                        </div>
+                    </div>
+                </div>
+                <textarea class="text_pole textarea_compact desc-textarea" rows="8" data-index="${index}" placeholder="Character description...">${desc}</textarea>
+            </div>
+        `;
+    }).join('');
+
+    // Add event listeners
+    listContainer.querySelectorAll('.use-desc-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = parseInt(e.currentTarget.dataset.index);
+            ContextUtil.setCurrentDescription(descriptions[index]);
+            updateActiveIndicators(container, descriptions);
+        });
+    });
+
+    listContainer.querySelectorAll('.delete-desc-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const index = parseInt(e.currentTarget.dataset.index);
+            descriptions.splice(index, 1);
+            saveDescriptions(descriptions);
+            updateDescriptionsList(container, descriptions);
+        });
+    });
+
+    listContainer.querySelectorAll('.desc-textarea').forEach(textarea => {
+        textarea.addEventListener('input', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            descriptions[index] = e.target.value;
+            saveDescriptions(descriptions);
+
+            // Update active indicators without re-rendering
+            setTimeout(() => updateActiveIndicators(container, descriptions), 50);
+        });
+    });
+}
+
 // Monitor the main description textarea for changes
 function setupDescriptionMonitoring(container, descriptions) {
     const mainTextarea = document.getElementById('description_textarea');
     if (mainTextarea) {
-        // Check initially
         checkDescriptionStatus(container, descriptions);
 
-        // Monitor for changes
         const checkStatus = () => {
-            setTimeout(() => checkDescriptionStatus(container, descriptions), 50);
+            setTimeout(() => {
+                updateActiveIndicators(container, descriptions);
+            }, 50);
         };
 
         mainTextarea.addEventListener('input', checkStatus);
         mainTextarea.addEventListener('paste', checkStatus);
 
-        // Cleanup when popup closes (optional)
+        // Cleanup when popup closes
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 if (mutation.type === 'childList' && !document.contains(container)) {
@@ -291,12 +270,81 @@ function setupDescriptionMonitoring(container, descriptions) {
     }
 }
 
+// Create the popup content
+function createPopupContent() {
+    let descriptions = ContextUtil.getInitialDescriptions();
+    const characterName = ContextUtil.getName();
+    const currentDescription = ContextUtil.getCurrentDescription();
+
+    // AUTO-SAVE: If this is the first time opening and there's a current description
+    if (descriptions.length === 0 && currentDescription.trim()) {
+        descriptions = [currentDescription];
+        saveDescriptions(descriptions);
+        console.log('Auto-saved current description on first open');
+    }
+
+    const container = document.createElement('div');
+    container.className = 'flex-container flexFlowColumn';
+
+    container.innerHTML = `
+        <div class="flex-container justifySpaceBetween alignItemsCenter">
+            <h3 class="margin0">Alternate descriptions for <span>${characterName}</span></h3>
+            <div id="add-description-btn" class="menu_button menu_button_icon">
+                <i class="fa-solid fa-plus"></i>
+                <span>Add Current</span>
+            </div>
+        </div>
+        <hr>
+        <div class="justifyLeft">
+            <small>
+                Save different versions of your character's description. Click "Use" to switch the active description in the editor.
+                ${descriptions.length === 1 && descriptions[0] === currentDescription ?
+            '<br><strong>💾 Your original description has been automatically saved!</strong>' : ''
+        }
+            </small>
+        </div>
+        <hr>
+        <div id="descriptions-list"></div>
+    `;
+
+    // Add event listener for "Add Current" button with duplicate check
+    container.querySelector('#add-description-btn').addEventListener('click', () => {
+        const currentDesc = ContextUtil.getCurrentDescription();
+
+        // Check if this description already exists
+        if (descriptionExists(descriptions, currentDesc)) {
+            // Show temporary message
+            const btn = container.querySelector('#add-description-btn');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-info-circle"></i><span>Already exists</span>';
+            btn.style.opacity = '0.6';
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                btn.style.opacity = '';
+            }, 1500);
+            return;
+        }
+
+        descriptions.push(currentDesc || '');
+        saveDescriptions(descriptions);
+        updateDescriptionsList(container, descriptions);
+    });
+
+    // Initial render
+    updateDescriptionsList(container, descriptions);
+
+    // Setup real-time monitoring of main textarea
+    setupDescriptionMonitoring(container, descriptions);
+
+    return container;
+}
+
 // Create and inject our button
 function createAltDescriptionButton() {
     const button = document.createElement('div');
     button.className = 'menu_button menu_button_icon alt_descriptions_button';
     button.title = 'Manage alternate descriptions';
-    button.innerHTML = '<i class="fa-solid fa-bars-staggered"></i><span>Alt. Descriptions</span>';
+    button.innerHTML = '<span>Alt. Descriptions</span>';
 
     // Handle button click - open the popup
     button.addEventListener('click', () => {
