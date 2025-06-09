@@ -104,7 +104,6 @@ function checkDescriptionStatus(container, descriptions) {
         statusIndicator.innerHTML = `
             <i class="fa-solid fa-exclamation-triangle"></i>
             <span>Current description has been modified and doesn't match any saved version.</span>
-            <br><span>If another description is activated, the current will be lost</span>
             <div class="menu_button menu_button_icon" id="save-current-btn" style="margin-left: auto; font-size: 12px; padding: 4px 8px;">
                 <i class="fa-solid fa-save"></i>
                 <span>Save Current</span>
@@ -216,8 +215,23 @@ function updateDescriptionsList(container, descriptions) {
     listContainer.querySelectorAll('.use-desc-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const index = parseInt(e.currentTarget.dataset.index);
-            ContextUtil.setCurrentDescription(descriptions[index]);
-            updateActiveIndicators(container, descriptions);
+            const currentDescription = ContextUtil.getCurrentDescription();
+            const hasUnsavedChanges = !descriptions.some(desc => desc.trim() === currentDescription.trim()) && currentDescription.trim();
+
+            if (hasUnsavedChanges) {
+                // Show simple confirmation dialog
+                const confirmed = confirm('Your current description has unsaved changes. Switch to this description anyway?');
+
+                if (confirmed) {
+                    ContextUtil.setCurrentDescription(descriptions[index]);
+                    updateActiveIndicators(container, descriptions);
+                }
+                // If not confirmed, do nothing
+            } else {
+                // No unsaved changes, switch directly
+                ContextUtil.setCurrentDescription(descriptions[index]);
+                updateActiveIndicators(container, descriptions);
+            }
         });
     });
 
