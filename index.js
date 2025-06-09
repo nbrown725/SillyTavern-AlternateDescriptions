@@ -104,7 +104,7 @@ function checkDescriptionStatus(container, descriptions) {
         statusIndicator.innerHTML = `
             <i class="fa-solid fa-exclamation-triangle"></i>
             <span>Current description has been modified and doesn't match any saved version.</span>
-            <span>If another description is activated, the current will be lost</span>
+            <br><span>If another description is activated, the current will be lost</span>
             <div class="menu_button menu_button_icon" id="save-current-btn" style="margin-left: auto; font-size: 12px; padding: 4px 8px;">
                 <i class="fa-solid fa-save"></i>
                 <span>Save Current</span>
@@ -216,50 +216,8 @@ function updateDescriptionsList(container, descriptions) {
     listContainer.querySelectorAll('.use-desc-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const index = parseInt(e.currentTarget.dataset.index);
-            const currentDescription = ContextUtil.getCurrentDescription();
-            const hasUnsavedChanges = !descriptions.some(desc => desc.trim() === currentDescription.trim()) && currentDescription.trim();
-
-            if (hasUnsavedChanges) {
-                // Show confirmation dialog
-                const context = SillyTavern.getContext();
-                const confirmMessage = document.createElement('div');
-                confirmMessage.innerHTML = `
-                <div style="text-align: center; padding: 20px;">
-                    <i class="fa-solid fa-exclamation-triangle" style="color: #ffc107; font-size: 24px; margin-bottom: 15px;"></i>
-                    <h3>Unsaved Changes</h3>
-                    <p>Your current description has unsaved changes. Switch to this description anyway?</p>
-                    <div style="margin-top: 20px;">
-                        <div class="menu_button menu_button_icon" id="confirm-switch" style="margin: 0 10px; background-color: #dc3545;">
-                            <span>Switch (Lose Changes)</span>
-                        </div>
-                        <div class="menu_button menu_button_icon" id="cancel-switch" style="margin: 0 10px;">
-                            <span>Cancel</span>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-                // Add event listeners for the confirmation buttons
-                confirmMessage.querySelector('#confirm-switch').addEventListener('click', () => {
-                    ContextUtil.setCurrentDescription(descriptions[index]);
-                    updateActiveIndicators(container, descriptions);
-                    // Close the confirmation popup
-                    const closeButton = document.getElementById('dialogue_popup_ok');
-                    if (closeButton) closeButton.click();
-                });
-
-                confirmMessage.querySelector('#cancel-switch').addEventListener('click', () => {
-                    // Just close the confirmation popup
-                    const closeButton = document.getElementById('dialogue_popup_ok');
-                    if (closeButton) closeButton.click();
-                });
-
-                context.callPopup(confirmMessage, 'text', '', { wide: false, large: false, okButton: false });
-            } else {
-                // No unsaved changes, switch directly
-                ContextUtil.setCurrentDescription(descriptions[index]);
-                updateActiveIndicators(container, descriptions);
-            }
+            ContextUtil.setCurrentDescription(descriptions[index]);
+            updateActiveIndicators(container, descriptions);
         });
     });
 
