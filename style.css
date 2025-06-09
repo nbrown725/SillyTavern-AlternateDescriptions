@@ -1,3 +1,11 @@
+.alt_descriptions_button {
+    margin-top: 5px;
+}
+
+.alt_descriptions_button:hover {
+    opacity: 0.8;
+}
+
 .active-description {
     border-left: 3px solid #28a745;
     padding-left: 10px;

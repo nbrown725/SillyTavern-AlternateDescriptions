@@ -339,7 +339,7 @@ function createAltDescriptionButton() {
     const button = document.createElement('div');
     button.className = 'menu_button menu_button_icon alt_descriptions_button';
     button.title = 'Manage alternate descriptions';
-    button.innerHTML = '<span>Alt. Descriptions</span>';
+    button.innerHTML = '<i class="fa-solid fa-bars-staggered"></i><span>Alt. Descriptions</span>';
 
     // Handle button click - open the popup
     button.addEventListener('click', () => {
