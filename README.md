@@ -14,15 +14,19 @@ Switching descriptions does not automatically save your current work. The extens
 
 ## Installation
 
-Install using the SillyTavern extension installer with the repository link.
+1. Open SillyTavern
+2. Go to **Extensions** → **Install extension**  
+3. Enter the repository URL: `https://github.com/nbrown725/SillyTavern-AlternateDescriptions`
+4. Click **Download**
+5. The extension will appear as a button above the character description field
+
+<img src="images/button.png" alt="Alternate descriptions interface button" width="300">
 
 ## Usage
 
 1. To open, click the "Alt. Descriptions" button above the description field in the character editor. By default, it adds the current description if none are present.
 2. To add a new description, click the "Add New" button in the top right. By default, in duplicates the current active description.
 3. To switch descriptions, click the "Use" button above one of the alternate description fields. See **⚠️ Important Note**
-
-<img src="images/button.png" alt="Alternate descriptions interface button" width="300">
 
 ## FAQ
 
