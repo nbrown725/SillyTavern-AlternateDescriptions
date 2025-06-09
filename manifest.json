@@ -1,5 +1,5 @@
 {
-    "display_name": "Alternate Fields",
+    "display_name": "Alternate Descriptions",
     "loading_order": 10,
     "requires": [],
     "optional": [],
@@ -7,6 +7,6 @@
     "css": "style.css",
     "author": "Nbrown725",
     "version": "0.1.0",
-    "homePage": "",
+    "homePage": "https://github.com/nbrown725/SillyTavern-AlternateDescriptions",
     "auto_update": true
 }

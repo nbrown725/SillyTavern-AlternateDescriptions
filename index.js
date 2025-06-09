@@ -1,10 +1,8 @@
 /*
- * Alternate Character Fields Extension for SillyTavern
+ * Alternate Character Descriptions Extension for SillyTavern
  * Based on patterns from Group Greetings extension
  * Licensed under AGPLv3
  */
-
-console.log('Alternate Character Fields extension loading...');
 
 // Utility functions for handling character context
 class ContextUtil {
@@ -233,9 +231,16 @@ function updateDescriptionsList(container, descriptions) {
     listContainer.querySelectorAll('.delete-desc-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const index = parseInt(e.currentTarget.dataset.index);
-            descriptions.splice(index, 1);
-            saveDescriptions(descriptions);
-            updateDescriptionsList(container, descriptions);
+
+            // Show confirmation dialog before deleting
+            const confirmed = confirm(`Are you sure you want to delete Description #${index + 1}? This action cannot be undone.`);
+
+            if (confirmed) {
+                descriptions.splice(index, 1);
+                saveDescriptions(descriptions);
+                updateDescriptionsList(container, descriptions);
+            }
+            // If not confirmed, do nothing
         });
     });
 
