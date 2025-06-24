@@ -30,7 +30,26 @@ class ContextUtil {
         }
     }
 
+    // Migrates alternate description array elements from string to { title: string, description: string } object.
+    static migrateDescriptions() {
+        const context = SillyTavern.getContext();
+
+        if (context.menuType !== "create") {
+            const characterId = ContextUtil.getCharacterId();
+            let desc = context.characters[characterId]?.data?.extensions?.alternate_descriptions;
+
+            if (desc) {
+                if (desc.length !== 0 && typeof(desc[0]) === "string") {
+                    desc = desc.map((description, index) => ({ title: `Description #${index+1}`, description: description }));
+                    saveDescriptions(desc);
+                    console.log("Migration Complete");
+                }
+            }
+        }
+    }
+
     static getInitialDescriptions() {
+        this.migrateDescriptions();
         const context = SillyTavern.getContext();
         if (context.menuType === 'create') {
             return context.createCharacterData.extensions?.alternate_descriptions || [];
@@ -72,7 +91,7 @@ function saveDescriptions(descriptions) {
 // Check if current description matches any saved descriptions
 function checkDescriptionStatus(container, descriptions) {
     const currentDescription = ContextUtil.getCurrentDescription();
-    const hasMatch = descriptions.some(desc => desc.trim() === currentDescription.trim());
+    const hasMatch = descriptions.some(desc => desc.description.trim() === currentDescription.trim());
 
     // Find or create status indicator
     let statusIndicator = container.querySelector('#description-status');
@@ -110,7 +129,7 @@ function checkDescriptionStatus(container, descriptions) {
 
         // Add click handler for the save button
         statusIndicator.querySelector('#save-current-btn').addEventListener('click', () => {
-            descriptions.push(currentDescription);
+            descriptions.push( {title: `Description #${descriptions.length+1}`, description: currentDescription });
             saveDescriptions(descriptions);
             updateDescriptionsList(container, descriptions);
             checkDescriptionStatus(container, descriptions);
@@ -137,11 +156,11 @@ function updateActiveIndicators(container, descriptions) {
     const listContainer = container.querySelector('#descriptions-list');
 
     descriptions.forEach((desc, index) => {
-        const isActive = desc.trim() === currentDescription.trim();
+        const isActive = desc.description.trim() === currentDescription.trim();
         const descItem = listContainer.querySelector(`[data-item-index="${index}"]`);
 
         if (descItem) {
-            const header = descItem.querySelector('h4');
+            const activeIndicator = descItem.querySelector('.active-indicator');
             const useBtn = descItem.querySelector('.use-desc-btn');
 
             // Update active class and styling
@@ -149,18 +168,12 @@ function updateActiveIndicators(container, descriptions) {
                 descItem.classList.add('active-description');
                 useBtn.style.opacity = '0.5';
                 useBtn.title = 'Already active';
-
-                // Add checkmark if not present
-                if (!header.querySelector('.fa-check-circle')) {
-                    header.innerHTML = `Description #${index + 1} <i class="fa-solid fa-check-circle" style="color: #28a745; margin-left: 8px;"></i>`;
-                }
+                activeIndicator.innerHTML = `<i class="fa-solid fa-check-circle" style="color: #28a745; margin-left: 8px;"></i>`;
             } else {
                 descItem.classList.remove('active-description');
                 useBtn.style.opacity = '';
                 useBtn.title = '';
-
-                // Remove checkmark
-                header.innerHTML = `Description #${index + 1}`;
+                activeIndicator.innerHTML = '';
             }
         }
     });
@@ -174,21 +187,28 @@ function updateDescriptionsList(container, descriptions) {
     const listContainer = container.querySelector('#descriptions-list');
     const currentDescription = ContextUtil.getCurrentDescription();
 
+    const saveTimeouts = {};
+    const context = SillyTavern.getContext();
+    const getTokenCount = context.getTokenCountAsync;
+
     if (descriptions.length === 0) {
         listContainer.innerHTML = '<strong>Click <i class="fa-solid fa-plus"></i> to save the current description</strong>';
         return;
     }
 
     listContainer.innerHTML = descriptions.map((desc, index) => {
-        const isActive = desc.trim() === currentDescription.trim();
+        const isActive = desc.description.trim() === currentDescription.trim();
         const activeClass = isActive ? 'active-description' : '';
         const activeIndicator = isActive ? '<i class="fa-solid fa-check-circle" style="color: #28a745; margin-left: 8px;"></i>' : '';
 
         return `
             <div class="description-item ${activeClass}" data-item-index="${index}" style="margin-bottom: 15px;">
                 <div class="flex-container justifySpaceBetween">
-                    <h4><input class="text_pole textarea_compact desc-title margin0" value="Description #1"> ${desc.title} ${activeIndicator}</h4>
-                    <div class="flex-container">
+                    <div class="flex-container" style="width: 40%">
+                        <input class="text_pole textarea_compact desc-title margin0" data-index="${index}" value="${desc.title}" placeholder="description title" maxlength="50">
+                        <div class="active-indicator">${activeIndicator}</div>
+                    </div>
+                    <div class="flex-container" style="flex: none;">
                         <div class="menu_button menu_button_icon use-desc-btn" data-index="${index}" ${isActive ? 'style="opacity: 0.5;" title="Already active"' : ''}>
                             <i class="fa-solid fa-arrow-up"></i>
                             <span>Use</span>
@@ -200,9 +220,23 @@ function updateDescriptionsList(container, descriptions) {
                     </div>
                 </div>
                 <textarea class="text_pole textarea_compact desc-textarea" rows="8" data-index="${index}" placeholder="Character description...">${desc.description}</textarea>
+                <div class="extension_token_counter" style="text-align: right; margin-top: 5px;">
+                    <span>Tokens:</span> <span data-token-display="${index}">calculating...</span>
+                </div>
             </div>
         `;
     }).join('');
+
+    // Calculate initial token counts
+    descriptions.forEach(async (desc, index) => {
+        const context = SillyTavern.getContext();
+        const tokenCount = await context.getTokenCountAsync(desc.description);
+
+        const tokenDisplay = container.querySelector(`[data-token-display="${index}"]`);
+        if (tokenDisplay) {
+            tokenDisplay.textContent = tokenCount;
+        }
+    });
 
     // Add event listeners
     listContainer.querySelectorAll('.use-desc-btn').forEach(btn => {
@@ -216,13 +250,13 @@ function updateDescriptionsList(container, descriptions) {
                 const confirmed = confirm('Your current description has unsaved changes. Switch to this description anyway?');
 
                 if (confirmed) {
-                    ContextUtil.setCurrentDescription(descriptions[index]);
+                    ContextUtil.setCurrentDescription(descriptions[index].description);
                     updateActiveIndicators(container, descriptions);
                 }
                 // If not confirmed, do nothing
             } else {
                 // No unsaved changes, switch directly
-                ContextUtil.setCurrentDescription(descriptions[index]);
+                ContextUtil.setCurrentDescription(descriptions[index].description);
                 updateActiveIndicators(container, descriptions);
             }
         });
@@ -233,7 +267,7 @@ function updateDescriptionsList(container, descriptions) {
             const index = parseInt(e.currentTarget.dataset.index);
 
             // Show confirmation dialog before deleting
-            const confirmed = confirm(`Are you sure you want to delete Description #${index + 1}? This action cannot be undone.`);
+            const confirmed = confirm(`Are you sure you want to delete ${descriptions[index].title}? This action cannot be undone.`);
 
             if (confirmed) {
                 descriptions.splice(index, 1);
@@ -247,11 +281,42 @@ function updateDescriptionsList(container, descriptions) {
     listContainer.querySelectorAll('.desc-textarea').forEach(textarea => {
         textarea.addEventListener('input', (e) => {
             const index = parseInt(e.target.dataset.index);
-            descriptions[index] = e.target.value;
-            saveDescriptions(descriptions);
+            descriptions[index].description = e.target.value;  // ← Still immediate
 
-            // Update active indicators without re-rendering
+            // Immediate UI update (responsive feel)
             setTimeout(() => updateActiveIndicators(container, descriptions), 50);
+
+            // Debounced save (performance)
+            if (saveTimeouts[index]) {
+                clearTimeout(saveTimeouts[index]);
+            }
+            saveTimeouts[index] = setTimeout(async () => {
+                saveDescriptions(descriptions);
+                
+                const tokenCount = await getTokenCount(descriptions[index].description);
+
+                const tokenDisplay = container.querySelector(`[data-token-display="${index}"]`);
+                if (tokenDisplay) {
+                    tokenDisplay.textContent = tokenCount;
+                }
+
+            }, 500);
+        });
+    });
+
+    listContainer.querySelectorAll('.desc-title').forEach(titleInput => {
+        titleInput.addEventListener('input', (e) => {
+            const index = parseInt(e.target.dataset.index);
+            descriptions[index].title = e.target.value;
+
+            if (saveTimeouts[index]) {
+                clearTimeout(saveTimeouts[index]);
+            }
+            saveTimeouts[index] = setTimeout(() => {
+                saveDescriptions(descriptions);
+                console.log("Title Saved")
+                // Token counting here
+            }, 500);
         });
     });
 }
@@ -313,7 +378,7 @@ function createPopupContent() {
         <div class="justifyLeft">
             <small>
                 Save different versions of your character's description. Click "Use" to switch the active description in the editor.
-                ${descriptions.length === 1 && descriptions[0] === currentDescription ?
+                ${descriptions.length === 1 && descriptions[0].description === currentDescription ?
             '<br><strong>💾 Your original description has been automatically saved!</strong>' : ''
         }
             </small>
@@ -325,8 +390,8 @@ function createPopupContent() {
     // Add event listener for "Add New" button with duplicate check
     container.querySelector('#add-description-btn').addEventListener('click', () => {
         const currentDesc = ContextUtil.getCurrentDescription();
-        descriptions.push(currentDesc ? { title: `Description #${descriptions.length+1}`, description: currentDesc } : '');
-        saveDescriptions({ title: `Description #${descriptions.length}`, description: descriptions });
+        descriptions.push(currentDesc ? { title: `Description #${descriptions.length+1}`, description: currentDesc } : {title: "", description: ""});
+        saveDescriptions(descriptions);
         updateDescriptionsList(container, descriptions);
     });
 

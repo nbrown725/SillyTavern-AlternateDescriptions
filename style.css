@@ -9,3 +9,7 @@
 .active-description .desc-textarea {
     border-color: #28a745;
 }
+
+.desc-title {
+    flex: 1;
+}
