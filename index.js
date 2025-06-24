@@ -187,7 +187,7 @@ function updateDescriptionsList(container, descriptions) {
         return `
             <div class="description-item ${activeClass}" data-item-index="${index}" style="margin-bottom: 15px;">
                 <div class="flex-container justifySpaceBetween">
-                    <h4>Description #${index + 1} ${activeIndicator}</h4>
+                    <h4><input class="text_pole textarea_compact desc-title margin0" value="Description #1"> ${desc.title} ${activeIndicator}</h4>
                     <div class="flex-container">
                         <div class="menu_button menu_button_icon use-desc-btn" data-index="${index}" ${isActive ? 'style="opacity: 0.5;" title="Already active"' : ''}>
                             <i class="fa-solid fa-arrow-up"></i>
@@ -199,7 +199,7 @@ function updateDescriptionsList(container, descriptions) {
                         </div>
                     </div>
                 </div>
-                <textarea class="text_pole textarea_compact desc-textarea" rows="8" data-index="${index}" placeholder="Character description...">${desc}</textarea>
+                <textarea class="text_pole textarea_compact desc-textarea" rows="8" data-index="${index}" placeholder="Character description...">${desc.description}</textarea>
             </div>
         `;
     }).join('');
@@ -209,7 +209,7 @@ function updateDescriptionsList(container, descriptions) {
         btn.addEventListener('click', (e) => {
             const index = parseInt(e.currentTarget.dataset.index);
             const currentDescription = ContextUtil.getCurrentDescription();
-            const hasUnsavedChanges = !descriptions.some(desc => desc.trim() === currentDescription.trim()) && currentDescription.trim();
+            const hasUnsavedChanges = !descriptions.some(desc => desc.description.trim() === currentDescription.trim()) && currentDescription.trim();
 
             if (hasUnsavedChanges) {
                 // Show simple confirmation dialog
@@ -293,7 +293,7 @@ function createPopupContent() {
 
     // AUTO-SAVE: If this is the first time opening and there's a current description
     if (descriptions.length === 0 && currentDescription.trim()) {
-        descriptions = [currentDescription];
+        descriptions = [{ title: "Description #1", description: currentDescription }];
         saveDescriptions(descriptions);
         console.log('Auto-saved current description on first open');
     }
@@ -325,8 +325,8 @@ function createPopupContent() {
     // Add event listener for "Add New" button with duplicate check
     container.querySelector('#add-description-btn').addEventListener('click', () => {
         const currentDesc = ContextUtil.getCurrentDescription();
-        descriptions.push(currentDesc || '');
-        saveDescriptions(descriptions);
+        descriptions.push(currentDesc ? { title: `Description #${descriptions.length+1}`, description: currentDesc } : '');
+        saveDescriptions({ title: `Description #${descriptions.length}`, description: descriptions });
         updateDescriptionsList(container, descriptions);
     });
 
