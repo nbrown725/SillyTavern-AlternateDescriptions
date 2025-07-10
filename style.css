@@ -1,15 +1,15 @@
-.alt_descriptions_button {
+.alt_fields_button {
     margin-top: 5px;
 }
 
-.alt_descriptions_button:hover {
+.alt_fields_button:hover {
     opacity: 0.8;
 }
 
-.active-description .desc-textarea {
+.active-field .field-textarea {
     border-color: #28a745;
 }
 
-.desc-title {
+.field-title {
     flex: 1;
 }

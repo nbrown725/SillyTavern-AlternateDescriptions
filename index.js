@@ -10,13 +10,32 @@ const fieldConfigs = [
         button_name: 'Descriptions',
         selector: '#description_div',
         inject_point: '#character_open_media_overrides',
-        button_class: ''
+        textarea: 'description_textarea',
+        saveKey: 'alt_descriptions',
     },
     {
         field: 'personality',
         button_name: 'Personalities',
         selector: '#personality_div',
-        inject_point: '.notes-link'
+        inject_point: '.notes-link',
+        textarea: 'personality_textarea',
+        saveKey: 'alt_personalities',
+    },
+    {
+        field: 'scenario',
+        button_name: 'Scenarios',
+        selector: '#scenario_div',
+        inject_point: '.notes-link',
+        textarea: 'scenario_pole',
+        saveKey: 'alt_scenarios',
+    },
+    {
+        field: 'example dialogue',
+        button_name: 'Example Dialogue',
+        selector: '#mes_example_div',
+        inject_point: '.notes-link',
+        textarea: 'mes_example_textarea',
+        saveKey: 'alt_example_dialogue',
     }
 ]
 
@@ -55,35 +74,54 @@ class ContextUtil {
             let desc = context.characters[characterId]?.data?.extensions?.alternate_descriptions;
 
             if (desc) {
-                if (desc.length !== 0 && typeof(desc[0]) === "string") {
-                    desc = desc.map((description, index) => ({ title: `Description #${index+1}`, description: description }));
-                    saveDescriptions(desc);
+                if (desc.length !== 0) {
+
+                    // If alternate_description is of old 0.1.0 type String, convert to object {title: String, content: String}
+                    if (typeof (desc[0]) === "string") {
+                        desc = desc.map((description, index) => ({ title: `Description #${index + 1}`, content: description }));
+
+                    // If alternate_description is of newer 0.2.0 type object, rename 'description' property to 'content'
+                    } else if (desc[0].description) {
+                        desc = desc.map(item => ({
+                            title: item.title,
+                            content: item.description
+                        }));
+                    }
+
+                    // Save field data with with description config
+                    saveFieldData(fieldConfigs[0], desc);
+
+                    // Delete the old property
+                    delete context.characters[characterId].data.extensions.alternate_descriptions;
+                    context.writeExtensionField(characterId, 'alternate_descriptions', undefined);
+
                     console.log("Migration Complete");
                 }
             }
         }
     }
 
-    static getInitialDescriptions() {
+    static getFieldData(field) {
+        console.log(field);
         this.migrateDescriptions();
         const context = SillyTavern.getContext();
         if (context.menuType === 'create') {
-            return context.createCharacterData.extensions?.alternate_descriptions || [];
+            return context.createCharacterData.extensions?.alternate_fields?.[field.saveKey] || [];
         } else {
             const characterId = ContextUtil.getCharacterId();
-            return context.characters[characterId]?.data?.extensions?.alternate_descriptions || [];
+            return context.characters[characterId]?.data?.extensions?.alternate_fields?.[field.saveKey] || [];
         }
     }
 
-    static getCurrentDescription() {
-        const textarea = document.getElementById('description_textarea');
+    static getCurrentField(field) {
+        const textarea = document.getElementById(field.textarea);
         return textarea ? textarea.value : '';
     }
 
-    static setCurrentDescription(description) {
-        const textarea = document.getElementById('description_textarea');
+    static setCurrentField(field, entry) {
+        const textarea = document.getElementById(field.textarea);
         if (textarea) {
-            textarea.value = description;
+            textarea.value = entry;
             // Trigger change event so SillyTavern knows the field was updated
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
         }
@@ -91,29 +129,42 @@ class ContextUtil {
 }
 
 // Save descriptions to character data
-function saveDescriptions(descriptions) {
+function saveFieldData(field, fieldData) {
     const context = SillyTavern.getContext();
+
     if (context.menuType === 'create') {
         if (!context.createCharacterData.extensions) {
             context.createCharacterData.extensions = {};
         }
-        context.createCharacterData.extensions.alternate_descriptions = descriptions;
+        if (!context.createCharacterData.extensions.alternate_fields) {
+            context.createCharacterData.extensions.alternate_fields = {};
+        }
+        context.createCharacterData.extensions.alternate_fields[field.saveKey] = fieldData;
     } else {
         const characterId = ContextUtil.getCharacterId();
-        context.writeExtensionField(characterId, 'alternate_descriptions', descriptions);
+        const character = context.characters[characterId];
+
+        // Handle nesting manually
+        if (!character.data.extensions.alternate_fields) {
+            character.data.extensions.alternate_fields = {};
+        }
+        character.data.extensions.alternate_fields[field.saveKey] = fieldData;
+
+        // Save the entire alternate_fields object
+        context.writeExtensionField(characterId, 'alternate_fields', character.data.extensions.alternate_fields);
     }
 }
 
 // Check if current description matches any saved descriptions
-function checkDescriptionStatus(container, descriptions) {
-    const currentDescription = ContextUtil.getCurrentDescription();
-    const hasMatch = descriptions.some(desc => desc.description.trim() === currentDescription.trim());
+function checkFieldStatus(container, field, fieldData) {
+    const currentFieldEntry = ContextUtil.getCurrentField(field);
+    const hasMatch = fieldData.some(entry => entry.content.trim() === currentFieldEntry.trim());
 
     // Find or create status indicator
-    let statusIndicator = container.querySelector('#description-status');
+    let statusIndicator = container.querySelector('#field-status');
     if (!statusIndicator) {
         statusIndicator = document.createElement('div');
-        statusIndicator.id = 'description-status';
+        statusIndicator.id = 'field-status';
         statusIndicator.style.cssText = `
             margin: 10px 0; 
             padding: 8px 12px; 
@@ -129,14 +180,14 @@ function checkDescriptionStatus(container, descriptions) {
         hr.parentNode.insertBefore(statusIndicator, hr.nextSibling);
     }
 
-    if (!hasMatch && currentDescription.trim()) {
+    if (!hasMatch && currentFieldEntry.trim()) {
         // Current description has been edited
         statusIndicator.style.backgroundColor = 'rgba(255, 193, 7, 0.1)';
         statusIndicator.style.borderLeft = '3px solid #ffc107';
         statusIndicator.style.color = '#856404';
         statusIndicator.innerHTML = `
             <i class="fa-solid fa-exclamation-triangle"></i>
-            <span>Current description has been modified and doesn't match any saved version.</span>
+            <span>Current ${field.field} has been modified and doesn't match any saved version.</span>
             <div class="menu_button menu_button_icon" id="save-current-btn" style="margin-left: auto; font-size: 12px; padding: 4px 8px;">
                 <i class="fa-solid fa-save"></i>
                 <span>Save Current</span>
@@ -145,10 +196,10 @@ function checkDescriptionStatus(container, descriptions) {
 
         // Add click handler for the save button
         statusIndicator.querySelector('#save-current-btn').addEventListener('click', () => {
-            descriptions.push( {title: `Description #${descriptions.length+1}`, description: currentDescription });
-            saveDescriptions(descriptions);
-            updateDescriptionsList(container, descriptions);
-            checkDescriptionStatus(container, descriptions);
+            fieldData.push( {title: `${field.field} #${fieldData.length+1}`, content: currentFieldEntry });
+            saveFieldData(field, fieldData);
+            updateFieldList(container, field, fieldData);
+            checkFieldStatus(container, field, fieldData);
         });
 
     } else if (hasMatch) {
@@ -158,7 +209,7 @@ function checkDescriptionStatus(container, descriptions) {
         statusIndicator.style.color = '#155724';
         statusIndicator.innerHTML = `
             <i class="fa-solid fa-check-circle"></i>
-            <span>Current description matches a saved version.</span>
+            <span>Current ${field.field} matches a saved version.</span>
         `;
     } else {
         // No current description
@@ -167,26 +218,27 @@ function checkDescriptionStatus(container, descriptions) {
 }
 
 // Smart update of active indicators without re-rendering entire list
-function updateActiveIndicators(container, descriptions) {
-    const currentDescription = ContextUtil.getCurrentDescription();
-    const listContainer = container.querySelector('#descriptions-list');
+function updateActiveIndicators(container, field, fieldData) {
+    console.log(container);
+    const currentFieldEntry = ContextUtil.getCurrentField(field);
+    const listContainer = container.querySelector('#field-list');
 
-    descriptions.forEach((desc, index) => {
-        const isActive = desc.description.trim() === currentDescription.trim();
-        const descItem = listContainer.querySelector(`[data-item-index="${index}"]`);
+    fieldData.forEach((entry, index) => {
+        const isActive = entry.content.trim() === currentFieldEntry.trim();
+        const entryItem = listContainer.querySelector(`[data-item-index="${index}"]`);
 
-        if (descItem) {
-            const activeIndicator = descItem.querySelector('.active-indicator');
-            const useBtn = descItem.querySelector('.use-desc-btn');
+        if (entryItem) {
+            const activeIndicator = entryItem.querySelector('.active-indicator');
+            const useBtn = entryItem.querySelector(`.use-field-btn`);
 
             // Update active class and styling
             if (isActive) {
-                descItem.classList.add('active-description');
+                entryItem.classList.add('active-field');
                 useBtn.style.opacity = '0.5';
                 useBtn.title = 'Already active';
                 activeIndicator.innerHTML = `<i class="fa-solid fa-check-circle" style="color: #28a745; margin-left: 8px;"></i>`;
             } else {
-                descItem.classList.remove('active-description');
+                entryItem.classList.remove('active-field');
                 useBtn.style.opacity = '';
                 useBtn.title = '';
                 activeIndicator.innerHTML = '';
@@ -195,47 +247,47 @@ function updateActiveIndicators(container, descriptions) {
     });
 
     // Update the status indicator
-    checkDescriptionStatus(container, descriptions);
+    checkFieldStatus(container, field, fieldData);
 }
 
 // Update the descriptions list in the popup
-function updateDescriptionsList(container, descriptions) {
-    const listContainer = container.querySelector('#descriptions-list');
-    const currentDescription = ContextUtil.getCurrentDescription();
+function updateFieldList(container, field, fieldData) {
+    const listContainer = container.querySelector('#field-list');
+    const currentFieldEntry = ContextUtil.getCurrentField(field);
 
     const saveTimeouts = {};
     const context = SillyTavern.getContext();
     const getTokenCount = context.getTokenCountAsync;
 
-    if (descriptions.length === 0) {
-        listContainer.innerHTML = '<strong>Click <i class="fa-solid fa-plus"></i> to save the current description</strong>';
+    if (fieldData.length === 0) {
+        listContainer.innerHTML = `<strong>Click <i class="fa-solid fa-plus"></i> to save the current ${field.field}</strong>`;
         return;
     }
 
-    listContainer.innerHTML = descriptions.map((desc, index) => {
-        const isActive = desc.description.trim() === currentDescription.trim();
-        const activeClass = isActive ? 'active-description' : '';
+    listContainer.innerHTML = fieldData.map((entry, index) => {
+        const isActive = entry.content.trim() === currentFieldEntry.trim();
+        const activeClass = isActive ? 'active-field' : '';
         const activeIndicator = isActive ? '<i class="fa-solid fa-check-circle" style="color: #28a745; margin-left: 8px;"></i>' : '';
 
         return `
-            <div class="description-item ${activeClass}" data-item-index="${index}" style="margin-bottom: 15px;">
+            <div class="field-item ${activeClass}" data-item-index="${index}" style="margin-bottom: 15px;">
                 <div class="flex-container justifySpaceBetween">
                     <div class="flex-container" style="width: 40%">
-                        <input class="text_pole textarea_compact desc-title margin0" data-index="${index}" value="${desc.title}" placeholder="description title" maxlength="50">
+                        <input class="text_pole textarea_compact field-title margin0" data-index="${index}" value="${entry.title}" placeholder="${field.field} title" maxlength="50">
                         <div class="active-indicator">${activeIndicator}</div>
                     </div>
                     <div class="flex-container" style="flex: none;">
-                        <div class="menu_button menu_button_icon use-desc-btn" data-index="${index}" ${isActive ? 'style="opacity: 0.5;" title="Already active"' : ''}>
+                        <div class="menu_button menu_button_icon use-field-btn" data-index="${index}" ${isActive ? 'style="opacity: 0.5;" title="Already active"' : ''}>
                             <i class="fa-solid fa-arrow-up"></i>
                             <span>Use</span>
                         </div>
-                        <div class="menu_button menu_button_icon delete-desc-btn" data-index="${index}">
+                        <div class="menu_button menu_button_icon delete-field-btn" data-index="${index}">
                             <i class="fa-solid fa-trash"></i>
                             <span>Delete</span>
                         </div>
                     </div>
                 </div>
-                <textarea class="text_pole textarea_compact desc-textarea" rows="8" data-index="${index}" placeholder="Character description...">${desc.description}</textarea>
+                <textarea class="text_pole textarea_compact field-textarea" rows="8" data-index="${index}" placeholder="${field.field}...">${entry.content}</textarea>
                 <div class="extension_token_counter" style="text-align: right; margin-top: 5px;">
                     <span>Tokens:</span> <span data-token-display="${index}">calculating...</span>
                 </div>
@@ -244,9 +296,9 @@ function updateDescriptionsList(container, descriptions) {
     }).join('');
 
     // Calculate initial token counts
-    descriptions.forEach(async (desc, index) => {
+    fieldData.forEach(async (entry, index) => {
         const context = SillyTavern.getContext();
-        const tokenCount = await context.getTokenCountAsync(desc.description);
+        const tokenCount = await context.getTokenCountAsync(entry.content);
 
         const tokenDisplay = container.querySelector(`[data-token-display="${index}"]`);
         if (tokenDisplay) {
@@ -255,61 +307,61 @@ function updateDescriptionsList(container, descriptions) {
     });
 
     // Add event listeners
-    listContainer.querySelectorAll('.use-desc-btn').forEach(btn => {
+    listContainer.querySelectorAll('.use-field-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const index = parseInt(e.currentTarget.dataset.index);
-            const currentDescription = ContextUtil.getCurrentDescription();
-            const hasUnsavedChanges = !descriptions.some(desc => desc.description.trim() === currentDescription.trim()) && currentDescription.trim();
+            const currentFieldEntry = ContextUtil.getCurrentField(field);
+            const hasUnsavedChanges = !fieldData.some(entry => entry.content.trim() === currentFieldEntry.trim()) && currentFieldEntry.trim();
 
             if (hasUnsavedChanges) {
                 // Show simple confirmation dialog
-                const confirmed = confirm('Your current description has unsaved changes. Switch to this description anyway?');
+                const confirmed = confirm(`Your current ${field.field} has unsaved changes. Switch to this ${field.field} anyway?`);
 
                 if (confirmed) {
-                    ContextUtil.setCurrentDescription(descriptions[index].description);
-                    updateActiveIndicators(container, descriptions);
+                    ContextUtil.setCurrentField(field, fieldData[index].content);
+                    updateActiveIndicators(container, field, fieldData);
                 }
                 // If not confirmed, do nothing
             } else {
                 // No unsaved changes, switch directly
-                ContextUtil.setCurrentDescription(descriptions[index].description);
-                updateActiveIndicators(container, descriptions);
+                ContextUtil.setCurrentField(field, fieldData[index].content);
+                updateActiveIndicators(container, field, fieldData);
             }
         });
     });
 
-    listContainer.querySelectorAll('.delete-desc-btn').forEach(btn => {
+    listContainer.querySelectorAll('.delete-field-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const index = parseInt(e.currentTarget.dataset.index);
 
             // Show confirmation dialog before deleting
-            const confirmed = confirm(`Are you sure you want to delete ${descriptions[index].title}? This action cannot be undone.`);
+            const confirmed = confirm(`Are you sure you want to delete ${fieldData[index].title}? This action cannot be undone.`);
 
             if (confirmed) {
-                descriptions.splice(index, 1);
-                saveDescriptions(descriptions);
-                updateDescriptionsList(container, descriptions);
+                fieldData.splice(index, 1);
+                saveFieldData(field, fieldData);
+                updateFieldList(container, field, fieldData);
             }
             // If not confirmed, do nothing
         });
     });
 
-    listContainer.querySelectorAll('.desc-textarea').forEach(textarea => {
+    listContainer.querySelectorAll('.field-textarea').forEach(textarea => {
         textarea.addEventListener('input', (e) => {
             const index = parseInt(e.target.dataset.index);
-            descriptions[index].description = e.target.value;  // ← Still immediate
+            fieldData[index].content = e.target.value;  // ← Still immediate
 
             // Immediate UI update (responsive feel)
-            setTimeout(() => updateActiveIndicators(container, descriptions), 50);
+            setTimeout(() => updateActiveIndicators(container, field, fieldData), 50);
 
             // Debounced save (performance)
             if (saveTimeouts[index]) {
                 clearTimeout(saveTimeouts[index]);
             }
             saveTimeouts[index] = setTimeout(async () => {
-                saveDescriptions(descriptions);
+                saveFieldData(field, fieldData);
                 
-                const tokenCount = await getTokenCount(descriptions[index].description);
+                const tokenCount = await getTokenCount(fieldData[index].content);
 
                 const tokenDisplay = container.querySelector(`[data-token-display="${index}"]`);
                 if (tokenDisplay) {
@@ -320,16 +372,16 @@ function updateDescriptionsList(container, descriptions) {
         });
     });
 
-    listContainer.querySelectorAll('.desc-title').forEach(titleInput => {
+    listContainer.querySelectorAll('.field-title').forEach(titleInput => {
         titleInput.addEventListener('input', (e) => {
             const index = parseInt(e.target.dataset.index);
-            descriptions[index].title = e.target.value;
+            fieldData[index].title = e.target.value;
 
             if (saveTimeouts[index]) {
                 clearTimeout(saveTimeouts[index]);
             }
             saveTimeouts[index] = setTimeout(() => {
-                saveDescriptions(descriptions);
+                saveFieldData(field, fieldData);
                 console.log("Title Saved")
                 // Token counting here
             }, 500);
@@ -338,14 +390,14 @@ function updateDescriptionsList(container, descriptions) {
 }
 
 // Monitor the main description textarea for changes
-function setupDescriptionMonitoring(container, descriptions) {
-    const mainTextarea = document.getElementById('description_textarea');
+function setupFieldMonitoring(container, field, fieldData) {
+    const mainTextarea = document.getElementById(field.textarea);
     if (mainTextarea) {
-        checkDescriptionStatus(container, descriptions);
+        checkFieldStatus(container, field, fieldData);
 
         const checkStatus = () => {
             setTimeout(() => {
-                updateActiveIndicators(container, descriptions);
+                updateActiveIndicators(container, field, fieldData);
             }, 50);
         };
 
@@ -367,25 +419,25 @@ function setupDescriptionMonitoring(container, descriptions) {
 }
 
 // Create the popup content
-function createPopupContent() {
-    let descriptions = ContextUtil.getInitialDescriptions();
+function createPopupContent(field) {
     const characterName = ContextUtil.getName();
-    const currentDescription = ContextUtil.getCurrentDescription();
+    let fieldData = ContextUtil.getFieldData(field);
+    let currentFieldEntry = ContextUtil.getCurrentField(field);
 
     // AUTO-SAVE: If this is the first time opening and there's a current description
-    if (descriptions.length === 0 && currentDescription.trim()) {
-        descriptions = [{ title: "Description #1", description: currentDescription }];
-        saveDescriptions(descriptions);
-        console.log('Auto-saved current description on first open');
+    if (fieldData.length === 0 && currentFieldEntry.trim()) {
+        fieldData = [{ title: `${field.field} #1`, content: currentFieldEntry }];
+        saveFieldData(field, fieldData);
+        console.log('Auto-saved current field on first open');
     }
 
     const container = document.createElement('div');
-    container.className = 'flex-container flexFlowColumn';
+    container.className = 'flex-container flexFlowColumn';  
 
     container.innerHTML = `
         <div class="flex-container justifySpaceBetween alignItemsCenter">
-            <h3 class="margin0">Alternate descriptions for <span>${characterName}</span></h3>
-            <div id="add-description-btn" class="menu_button menu_button_icon">
+            <h3 class="margin0">Alternate ${field.button_name} for <span>${characterName}</span></h3>
+            <div id="add-field-btn" class="menu_button menu_button_icon">
                 <i class="fa-solid fa-plus"></i>
                 <span>Add New</span>
             </div>
@@ -393,29 +445,29 @@ function createPopupContent() {
         <hr>
         <div class="justifyLeft">
             <small>
-                Save different versions of your character's description. Click "Use" to switch the active description in the editor.
-                ${descriptions.length === 1 && descriptions[0].description === currentDescription ?
-            '<br><strong>💾 Your original description has been automatically saved!</strong>' : ''
+                Save different versions of your character's ${field.field}. Click "Use" to switch the active ${field.field} in the editor.
+                ${fieldData.length === 1 && fieldData[0].content === currentFieldEntry ?
+            `<br><strong>💾 Your original ${field.field} has been automatically saved!</strong>` : ''
         }
             </small>
         </div>
         <hr>
-        <div id="descriptions-list"></div>
+        <div id="field-list"></div>
     `;
 
     // Add event listener for "Add New" button with duplicate check
-    container.querySelector('#add-description-btn').addEventListener('click', () => {
-        const currentDesc = ContextUtil.getCurrentDescription();
-        descriptions.push(currentDesc ? { title: `Description #${descriptions.length+1}`, description: currentDesc } : {title: "", description: ""});
-        saveDescriptions(descriptions);
-        updateDescriptionsList(container, descriptions);
+    container.querySelector(`#add-field-btn`).addEventListener('click', () => {
+        currentFieldEntry = ContextUtil.getCurrentField(field);
+        fieldData.push(currentFieldEntry ? { title: `${field.field} #${fieldData.length + 1}`, content: currentFieldEntry } : { title: `${field.field} #${fieldData.length+1}`, content: ''});
+        saveFieldData(field, fieldData);
+        updateFieldList(container, field, fieldData);
     });
 
     // Initial render
-    updateDescriptionsList(container, descriptions);
+    updateFieldList(container, field, fieldData);
 
     // Setup real-time monitoring of main textarea
-    setupDescriptionMonitoring(container, descriptions);
+    setupFieldMonitoring(container, field, fieldData);
 
     return container;
 }
@@ -423,14 +475,14 @@ function createPopupContent() {
 // Create field button
 function createButton(field) {
     const button = document.createElement('div');
-    button.className = `menu_button menu_button_icon alt_${field.field}_button`;
+    button.className = `menu_button menu_button_icon alt_${field.field}_button alt_fields_button`;
     button.title = `Manage alternate ${field.field}s`;
     button.innerHTML = `<i class="fa-solid fa-bars-staggered"></i><span>Alt. ${field.button_name}</span>`;
 
     // Handle button click - open the popup
     button.addEventListener('click', () => {
         const context = SillyTavern.getContext();
-        const popupContent = createPopupContent();
+        const popupContent = createPopupContent(field);
         context.callPopup(popupContent, 'text', '', { wide: true, large: true });
     });
 
