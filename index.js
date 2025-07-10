@@ -4,6 +4,22 @@
  * Licensed under AGPLv3
  */
 
+const fieldConfigs = [
+    {
+        field: 'description',
+        button_name: 'Descriptions',
+        selector: '#description_div',
+        inject_point: '#character_open_media_overrides',
+        button_class: ''
+    },
+    {
+        field: 'personality',
+        button_name: 'Personalities',
+        selector: '#personality_div',
+        inject_point: '.notes-link'
+    }
+]
+
 // Utility functions for handling character context
 class ContextUtil {
     static getCharacterId() {
@@ -404,12 +420,12 @@ function createPopupContent() {
     return container;
 }
 
-// Create and inject our button
-function createAltDescriptionButton() {
+// Create field button
+function createButton(field) {
     const button = document.createElement('div');
-    button.className = 'menu_button menu_button_icon alt_descriptions_button';
-    button.title = 'Manage alternate descriptions';
-    button.innerHTML = '<i class="fa-solid fa-bars-staggered"></i><span>Alt. Descriptions</span>';
+    button.className = `menu_button menu_button_icon alt_${field.field}_button`;
+    button.title = `Manage alternate ${field.field}s`;
+    button.innerHTML = `<i class="fa-solid fa-bars-staggered"></i><span>Alt. ${field.button_name}</span>`;
 
     // Handle button click - open the popup
     button.addEventListener('click', () => {
@@ -431,25 +447,17 @@ function waitForElement(selector, callback) {
     }
 }
 
-// Inject the button into the description area
-function injectButton() {
-    waitForElement('#description_div', (descriptionDiv) => {
-        // Find the external media button
-        const externalMediaButton = descriptionDiv.querySelector('#character_open_media_overrides');
-
-        if (externalMediaButton) {
-            // Create our button
-            const altDescButton = createAltDescriptionButton();
-
-            // Insert it right after the external media button
-            externalMediaButton.parentNode.insertBefore(altDescButton, externalMediaButton.nextSibling);
-
-            console.log('Alt Descriptions button injected successfully!');
-        } else {
-            console.log('Could not find external media button to inject after');
-        }
-    });
+// Inject buttons into the field area
+function injectButtons() {
+    fieldConfigs.forEach(field => {
+        waitForElement(field.selector, (fieldDiv) => {
+            const fieldButton = createButton(field);
+            const injectElem = fieldDiv.querySelector(field.inject_point);
+            injectElem.parentNode.insertBefore(fieldButton, injectElem.nextSibling);
+        })
+    })
 }
 
 // Initialize the extension
-injectButton();
+injectButtons();
+
