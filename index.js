@@ -4,6 +4,11 @@
  * Licensed under AGPLv3
  */
 
+import { SlashCommand } from "../../../slash-commands/SlashCommand.js";
+import { SlashCommandParser } from '../../../slash-commands/SlashCommandParser.js';
+import { ARGUMENT_TYPE, SlashCommandNamedArgument } from '../../../slash-commands/SlashCommandArgument.js';
+import { SlashCommandEnumValue, enumTypes } from '../../../slash-commands/SlashCommandEnumValue.js';
+
 const fieldConfigs = [
     {
         field: 'description',
@@ -33,9 +38,25 @@ const fieldConfigs = [
         field: 'example dialogue',
         button_name: 'Example Dialogue',
         selector: '#mes_example_div',
-        inject_point: '.notes-link',
+        inject_point: '.editor_maximize',
         textarea: 'mes_example_textarea',
         saveKey: 'alt_example_dialogue',
+    },
+    {
+        field: 'main prompt',
+        button_name: 'Main Prompts',
+        selector: '#system_prompt_textarea',
+        inject_point: '.editor_maximize',
+        textarea: 'system_prompt_textarea',
+        saveKey: 'alt_main_prompts',
+    },
+    {
+        field: 'post-history instructions',
+        button_name: 'Post-History Instructions',
+        selector: '#post_history_instructions_textarea',
+        inject_point: '.editor_maximize',
+        textarea: 'post_history_instructions_textarea',
+        saveKey: 'alt_post_history',
     }
 ]
 
@@ -102,7 +123,6 @@ class ContextUtil {
     }
 
     static getFieldData(field) {
-        console.log(field);
         this.migrateDescriptions();
         const context = SillyTavern.getContext();
         if (context.menuType === 'create') {
@@ -136,6 +156,7 @@ function saveFieldData(field, fieldData) {
         if (!context.createCharacterData.extensions) {
             context.createCharacterData.extensions = {};
         }
+
         if (!context.createCharacterData.extensions.alternate_fields) {
             context.createCharacterData.extensions.alternate_fields = {};
         }
@@ -145,6 +166,10 @@ function saveFieldData(field, fieldData) {
         const character = context.characters[characterId];
 
         // Handle nesting manually
+        if (!character.data.extensions) {
+            character.data.extensions = {};
+        }
+        
         if (!character.data.extensions.alternate_fields) {
             character.data.extensions.alternate_fields = {};
         }
@@ -219,7 +244,6 @@ function checkFieldStatus(container, field, fieldData) {
 
 // Smart update of active indicators without re-rendering entire list
 function updateActiveIndicators(container, field, fieldData) {
-    console.log(container);
     const currentFieldEntry = ContextUtil.getCurrentField(field);
     const listContainer = container.querySelector('#field-list');
 
@@ -250,12 +274,12 @@ function updateActiveIndicators(container, field, fieldData) {
     checkFieldStatus(container, field, fieldData);
 }
 
+const saveTimeouts = {};
+
 // Update the descriptions list in the popup
 function updateFieldList(container, field, fieldData) {
     const listContainer = container.querySelector('#field-list');
     const currentFieldEntry = ContextUtil.getCurrentField(field);
-
-    const saveTimeouts = {};
     const context = SillyTavern.getContext();
     const getTokenCount = context.getTokenCountAsync;
 
@@ -382,7 +406,6 @@ function updateFieldList(container, field, fieldData) {
             }
             saveTimeouts[index] = setTimeout(() => {
                 saveFieldData(field, fieldData);
-                console.log("Title Saved")
                 // Token counting here
             }, 500);
         });
@@ -428,7 +451,6 @@ function createPopupContent(field) {
     if (fieldData.length === 0 && currentFieldEntry.trim()) {
         fieldData = [{ title: `${field.field} #1`, content: currentFieldEntry }];
         saveFieldData(field, fieldData);
-        console.log('Auto-saved current field on first open');
     }
 
     const container = document.createElement('div');
@@ -475,7 +497,7 @@ function createPopupContent(field) {
 // Create field button
 function createButton(field) {
     const button = document.createElement('div');
-    button.className = `menu_button menu_button_icon alt_${field.field}_button alt_fields_button`;
+    button.className = `menu_button menu_button_icon alt_${field.saveKey}_button alt_fields_button`;
     button.title = `Manage alternate ${field.field}s`;
     button.innerHTML = `<i class="fa-solid fa-bars-staggered"></i><span>Alt. ${field.button_name}</span>`;
 
@@ -502,14 +524,160 @@ function waitForElement(selector, callback) {
 // Inject buttons into the field area
 function injectButtons() {
     fieldConfigs.forEach(field => {
-        waitForElement(field.selector, (fieldDiv) => {
-            const fieldButton = createButton(field);
-            const injectElem = fieldDiv.querySelector(field.inject_point);
-            injectElem.parentNode.insertBefore(fieldButton, injectElem.nextSibling);
-        })
-    })
+        if (field.selector.startsWith('#') && field.selector.includes('textarea')) {
+            // Handle textarea-based selectors
+            waitForElement(field.selector, (textarea) => {
+                const fieldButton = createButton(field);
+                const parentDiv = textarea.closest('div');
+                const injectElem = parentDiv.querySelector(field.inject_point);
+                if (injectElem) {
+                    injectElem.parentNode.insertBefore(fieldButton, injectElem.nextSibling);
+                }
+            });
+        } else {
+            // Handle div-based selectors
+            waitForElement(field.selector, (fieldDiv) => {
+                const fieldButton = createButton(field);
+                const injectElem = fieldDiv.querySelector(field.inject_point);
+                if (injectElem) {
+                    injectElem.parentNode.insertBefore(fieldButton, injectElem.nextSibling);
+                }
+            });
+        }
+    });
+}
+
+// Register slash command to switch field entry
+function registerSlashCommand() {
+
+    // Enum provider for field types
+    const fieldEnumProvider = () => {
+        return fieldConfigs.map(field =>
+            new SlashCommandEnumValue(
+                field.field, // field name
+                field.button_name, // field name plural
+                enumTypes.name, // field type
+            )
+        );
+    };
+
+    // Enum provider for field names
+    const fieldNameEnumProvider = (executor) => {
+        // Get the current value of the field argument
+        const fieldValue = executor.namedArgumentList.find(x => x.name === 'field')?.value;
+
+        // return empty if no field is specified
+        if (!fieldValue) {
+            return []; // No field specified yet
+        }
+
+        // Get field config for fieldValue. Return empty if fieldConfig cannot be found
+        const fieldConfig = fieldConfigs.find(f => f.field === fieldValue);
+        if (!fieldConfig) {
+            return []; // Invalid field
+        }
+
+        // Get the field data
+        const fieldData = ContextUtil.getFieldData(fieldConfig);
+
+        // Return enum values for each alternate entry
+        return fieldData.map(entry =>
+            new SlashCommandEnumValue(
+                entry.title, // field name
+                entry.content.substring(0, 50) + (entry.content.length > 50 ? '...' : ''), // field preview. First 50 characters.
+                enumTypes.name, // field type
+            )
+        );
+    };
+
+    // Register the slash command
+    SlashCommandParser.addCommandObject(SlashCommand.fromProps({
+        name: 'altfield',
+        callback: altFieldCallback,
+        helpString: `
+        <div>
+        Switch to an alternate field entry. Must have a character selected.
+        </div>
+        <div>
+        <strong style="color: rgb(255, 193, 7)">WARNING:</strong> Will overwrite current field without saving it.   
+        </div>
+        <div>
+            <strong>Example:</strong>
+            <ul>
+                <li>
+                    <pre><code>/altfield field=description name="Description #1"</code></pre>
+                    Changes the description field to the alternate entry titled "Description #1"
+                </li>
+            </ul>
+        </div>`,
+        namedArgumentList: [
+            SlashCommandNamedArgument.fromProps({
+                name: 'field',
+                description: 'Field type to switch (description, personality, etc.)',
+                typeList: [ARGUMENT_TYPE.STRING],
+                isRequired: true,
+                enumProvider: fieldEnumProvider,
+                forceEnum: true
+            }),
+            SlashCommandNamedArgument.fromProps({
+                name: 'name',
+                description: 'The name of the saved alternate to switch to',
+                typeList: [ARGUMENT_TYPE.STRING],
+                enumProvider: fieldNameEnumProvider
+            })
+        ],
+        returns: ARGUMENT_TYPE.STRING
+    }));
+}
+
+// Callback function that executes the command
+function altFieldCallback(namedArguments) {
+    const { field, name } = namedArguments;
+
+    try {
+        // Get field config for field arg. Return error if field is invalid.
+        const fieldConfig = fieldConfigs.find(f => f.field === field);
+        if (!fieldConfig) {
+            return `Error: Unknown field "${field}". Available fields: ${fieldConfigs.map(f => f.field).join(', ')}`;
+        }
+
+        // Get the field data. Return empty string if no entries found
+        const fieldData = ContextUtil.getFieldData(fieldConfig);
+
+        if (fieldData.length === 0) {
+            return ``;
+        }
+
+        let alternate;
+        let selectedName;
+
+        // If name is provided, find the specific alternate. Else return random
+        if (name && name.trim()) {
+            alternate = fieldData.find(entry => entry.title === name);
+            if (!alternate) {
+                const availableNames = fieldData.map(entry => entry.title);
+                return `Error: No alternate named "${name}" found for ${field}. Available: ${availableNames.join(', ')}`;
+            }
+            selectedName = name;
+        } else {
+            // If name is blank, choose a random alternate
+            const randomIndex = Math.floor(Math.random() * fieldData.length);
+            alternate = fieldData[randomIndex];
+            selectedName = alternate.title;
+        }
+
+        // Switch to the alternate
+        ContextUtil.setCurrentField(fieldConfig, alternate.content);
+
+        // return switched description
+        return alternate.content;
+
+    } catch (error) {
+        console.error('Error in altfield command:', error);
+        return `Error: ${error.message}`;
+    }
 }
 
 // Initialize the extension
 injectButtons();
-
+registerSlashCommand();
