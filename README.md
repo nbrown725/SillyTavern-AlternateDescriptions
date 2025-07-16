@@ -1,16 +1,20 @@
-# SillyTavern Alternate Descriptions
-
-<img src="images/main_panel.png" alt="Main Interface" width="400">
+# SillyTavern Alternate Fields
+*Formerly "Alternate Descriptions"*
 
 ## Overview
 
-A SillyTavern extension that allows you to save and manage multiple descriptions for one character, making it easy to experiment with different character concepts without losing your original work.
+A SillyTavern extension that allows you to save and manage multiple versions of character fields within a single character card. Perfect for experimenting with different character concepts without losing your original work.
 
-## ⚠️ Important Note
+**Supported Fields**: Description, Personality, Scenario, Example Dialogue, Main Prompt, Post-History Instructions
 
-Switching descriptions does not automatically save your current work. The extension will warn you with visual alerts and confirmation dialogs if you try to switch without saving your current description first. Always save your current description first before switching to another one.
+## Features
 
-<img src="images/unsaved_panel.png" alt="Unsaved description warning" width="400">
+- ✅ **Multi-field support** - Works with 6 different character fields
+- ✅ **Auto-save** - Automatically saves current field content on first use
+- ✅ **Visual indicators** - Shows which alternate is currently active & warns before switching with unsaved changes
+- ✅ **Token counting** - Shows token count for each alternate
+- ✅ **Slash command support** - Switch alternates via `/altfield` command
+- ✅ **Portable** - Data stored in character card, stays with character
 
 ## Installation
 
@@ -18,23 +22,55 @@ Switching descriptions does not automatically save your current work. The extens
 2. Go to **Extensions** → **Install extension**  
 3. Enter the repository URL: `https://github.com/nbrown725/SillyTavern-AlternateDescriptions`
 4. Click **Download**
-5. The extension will appear as a button above the character description field
-
-<img src="images/button.png" alt="Alternate descriptions interface button" width="300">
+5. The extension will add "Alt. [Field]" buttons above supported fields
 
 ## Usage
 
-1. To open, click the "Alt. Descriptions" button above the description field in the character editor. By default, it adds the current description if none are present.
-2. To add a new description, click the "Add New" button in the top right. By default, in duplicates the current active description.
-3. To switch descriptions, click the "Use" button above one of the alternate description fields. See **⚠️ Important Note**
+### Basic Usage
+1. **Open the manager**: Click the "Alt. [Field]" button above any supported field in the character editor
+2. **Add new alternates**: Click the "Add New" button to create a new alternate (duplicates current content)
+3. **Switch alternates**: Click the "Use" button to switch to a different alternate
+4. **Edit alternates**: Modify titles and content directly in the popup
 
-## FAQ
+### Slash Command Usage
 
-> Where are the alternate descriptions stored?
+The `/altfield` command allows quick switching between alternates:
 
-Alternate descriptions are saved inside the character card, under the `extensions` object within the `alternate_descriptions` key. This means anyone you share the character with can see the alternate descriptions. Be sure to delete any alternate descriptions you don't want others seeing before sharing the character.
+```
+/altfield field=<field_name> name=<alternate_name>
+```
 
-## Acknowledgement
+**Arguments:**
+- `field` - The field type (description, personality, scenario, etc.) - **Required**
+- `name` - The name of the alternate to switch to - **Optional**
+
+**Examples:**
+```
+# Switch to specific alternate
+/altfield field=description name="Description #1"
+
+# Switch to random alternate (omit name)
+/altfield field=scenario
+```
+
+Both arguments support autocomplete - the `field` argument must be specified for the `name` argument to autocomplete.
+
+## ⚠️ Important Notes
+
+- **Manual saving required**: The extension doesn't auto-save changes when switching alternates
+- **Warning system**: Visual alerts and confirmation dialogs protect against losing unsaved work
+- **Overwrites current content**: Switching alternates will replace current field content
+
+## Data Storage
+
+Alternate fields are stored in the character card under:
+```
+extensions.alternate_fields.[field_saveKey]
+```
+
+This means data travels with the character card when shared. Delete fields you don't want others seeing before sharing.
+
+## Acknowledgements
 
 This extension is based on patterns from the [Group Greetings extension](https://github.com/SillyTavern/Extension-GroupGreetings) by the SillyTavern team.
 
