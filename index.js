@@ -645,11 +645,10 @@ function altFieldCallback(namedArguments) {
         const fieldData = ContextUtil.getFieldData(fieldConfig);
 
         if (fieldData.length === 0) {
-            return ``;
+            return `Error: No field enteries found for ${field}`;
         }
 
         let alternate;
-        let selectedName;
 
         // If name is provided, find the specific alternate. Else return random
         if (name && name.trim()) {
@@ -658,12 +657,10 @@ function altFieldCallback(namedArguments) {
                 const availableNames = fieldData.map(entry => entry.title);
                 return `Error: No alternate named "${name}" found for ${field}. Available: ${availableNames.join(', ')}`;
             }
-            selectedName = name;
         } else {
             // If name is blank, choose a random alternate
             const randomIndex = Math.floor(Math.random() * fieldData.length);
             alternate = fieldData[randomIndex];
-            selectedName = alternate.title;
         }
 
         // Switch to the alternate
