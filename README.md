@@ -1,15 +1,24 @@
 # SillyTavern Alternate Fields
-*Formerly "Alternate Descriptions"*
+
+This is my personal fork of **[nbrown725's Alternate Fields extension](https://github.com/nbrown725/SillyTavern-AlternateDescriptions)**.
+
+# `main` branch changes
+
+- **Feature:** Added alternate field for the "Character's Note", including a `/altfield` slash command for the "Character's Note". Restores only the text. "Depth" and "Role" remain unchanged when using either "Use" or `/altfield`. [⤷](https://github.com/julez122/SillyTavern-AlternateDescriptions/commit/6167f1aa9b40a61da7c12aad0057c43696f5c31b)
+
+---
+
+# Original README
 
 ## Overview
 
 A SillyTavern extension that allows you to save and manage multiple versions of character fields within a single character card. Perfect for experimenting with different character concepts without losing your original work.
 
-**Supported Fields**: Description, Personality, Scenario, Example Dialogue, Main Prompt, Post-History Instructions
+**Supported Fields**: Description, Personality, Scenario, Example Dialogue, Main Prompt, Post-History Instructions, Character's Note
 
 ## Features
 
-- **Multi-field support** - Works with 6 different character fields
+- **Multi-field support** - Works with 7 different character fields
 - **Auto-save** - Automatically saves current field content on first use
 - **Visual indicators** - Shows which alternate is currently active & warns before switching with unsaved changes
 - **Token counting** - Shows token count for each alternate
@@ -20,7 +29,7 @@ A SillyTavern extension that allows you to save and manage multiple versions of 
 
 1. Open SillyTavern
 2. Go to **Extensions** → **Install extension**  
-3. Enter the repository URL: `https://github.com/nbrown725/SillyTavern-AlternateDescriptions`
+3. Enter the repository URL: `https://github.com/julez122/SillyTavern-AlternateDescriptions`
 4. Click **Download**
 5. The extension will add "Alt. [Field]" buttons above supported fields
 
@@ -31,6 +40,10 @@ A SillyTavern extension that allows you to save and manage multiple versions of 
 2. **Add new alternates**: Click the "Add New" button to create a new alternate (duplicates current content)
 3. **Switch alternates**: Click the "Use" button to switch to a different alternate
 4. **Edit alternates**: Modify titles and content directly in the popup
+
+### Character's Note
+
+Note alternates save and restore **only the text**. **Depth** and **Role** remain unchanged when using either **Use** or `/altfield`. The manager provides the same first-open preservation, Add New, Save Current, unsaved-change warnings, active indicators, token counts, and deletion confirmation as the other fields.
 
 ### Slash Command Usage
 
@@ -51,9 +64,17 @@ The `/altfield` command allows quick switching between alternates:
 
 # Switch to random alternate (omit name)
 /altfield field=scenario
+
+# Switch to a named Character's Note (quote the field name)
+/altfield field="character's note" name="Gentle reminder"
+
+# Switch to a random Character's Note
+/altfield field="character's note"
 ```
 
 Both arguments support autocomplete - the `field` argument must be specified for the `name` argument to autocomplete.
+
+Slash commands overwrite the current text without the manager's unsaved-change confirmation.
 
 ## ⚠ Important Notes
 

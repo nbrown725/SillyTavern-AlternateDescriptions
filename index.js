@@ -57,6 +57,14 @@ const fieldConfigs = [
         inject_point: '.editor_maximize',
         textarea: 'post_history_instructions_textarea',
         saveKey: 'alt_post_history',
+    },
+    {
+        field: "character's note",
+        button_name: "Character's Notes",
+        selector: '#depth_prompt_div',
+        inject_point: '.editor_maximize[data-for="depth_prompt_prompt"]',
+        textarea: 'depth_prompt_prompt',
+        saveKey: 'alt_character_notes',
     }
 ]
 
@@ -607,6 +615,14 @@ function registerSlashCommand() {
                 <li>
                     <pre><code>/altfield field=description name="Description #1"</code></pre>
                     Changes the description field to the alternate entry titled "Description #1"
+                </li>
+                <li>
+                    <pre><code>/altfield field="character's note" name="Gentle reminder"</code></pre>
+                    Changes the Character's Note text to "Gentle reminder", leaving Depth and Role unchanged.
+                </li>
+                <li>
+                    <pre><code>/altfield field="character's note"</code></pre>
+                    Chooses a random saved Character's Note. Depth and Role stay unchanged.
                 </li>
             </ul>
         </div>`,
